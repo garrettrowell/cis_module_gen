@@ -3,15 +3,49 @@ require 'roo-xls'
 require 'erb'
 require 'facets'
 require 'fileutils'
+require 'optparse'
 
-#spreadsheet = 'CIS_Red_Hat_Enterprise_Linux_7_Benchmark_v2.2.0.xls'
-spreadsheet = 'CIS_Microsoft_Windows_Server_2016_RTM_Release_1607_Benchmark_v1.1.0.xls'
+options = {}
+optparse = OptionParser.new do |opts|
+  opts.on('-s', '--spreadsheet=FILE', 'cis benchmark excel doc') do |s|
+    options[:spreadsheet] = s
+  end
+  opts.on('-n', '--osname=NAME', 'Operating system name. Eg. windows') do |n|
+    options[:osname] = n
+  end
+  opts.on('-v', '--osversion=VERSION', 'Operating system version. Eg. server2016') do |v|
+    options[:osversion] = v
+  end
+  opts.on('-d', '--manifestdir=DIR', 'Directory to write generated manifests to. Defaults to ./manifests') do |d|
+    options[:manifest_dir] = d
+  end
+end
+
+# Make mandatory args easier
+begin
+  optparse.parse!
+  mandatory = [:spreadsheet, :osname, :osversion]
+  missing = mandatory.select{ |param| options[param].nil? }
+  unless missing.empty?
+    raise OptionParser::MissingArgument.new(missing.join(', '))
+  end
+rescue OptionParser::InvalidOption, OptionParser::MissingArgument
+  puts $!.to_s
+  puts optparse
+  exit
+end
+
+# Defaults
+options[:manifest_dir] = './manifests' if options[:manifest_dir].nil?
+
+# Quick 'n ugly mapping
+spreadsheet = options[:spreadsheet]
+osname = options[:osname]
+osversion = options[:osversion]
+manifest_dir = options[:manifest_dir]
+
+# Open Spreadsheet
 xls = Roo::Spreadsheet.open(spreadsheet)
-#osname = 'linux'
-#osversion = 'rhel7'
-osname = 'windows'
-osversion = 'server2016'
-manifest_dir = './manifests'
 
 puppetmodule = 'cis_' + osname
 sheet_regex = %r{^(?<level>Level\s\d)?(\s-\s)?(?<profile>.*)$}
